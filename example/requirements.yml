@@ -3,7 +3,7 @@ roles:
   - name: agni-certificates
     src: https://github.com/wdion-arista/agni_certificates.git
     scm: git
-    version: v1.0.0
+    version: v1.0.1
     #version: main    
 collections:
   - name: community.general
