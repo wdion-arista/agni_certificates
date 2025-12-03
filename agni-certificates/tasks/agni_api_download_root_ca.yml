@@ -1,0 +1,31 @@
+# AGNI Downlaod Root CA
+
+
+- name: AGNI - API - Download Root CA
+  delegate_to: localhost
+  vars:
+    api_name: /config.cert.radSec.ca.get
+  tags:
+    - agni_api_con
+    - agni_api_dl_root_ca
+  block:
+    - name: AGNI - API - Download RadSec Root CA
+      ansible.builtin.uri:
+        url: "{{ agni_base_url }}/api{{ api_name }}"
+        method: POST
+        body_format: json
+        headers:
+          Cookie: "{{ agni_cookie }}"
+          Content-Type: "application/json"
+        body:
+          orgID: "{{ agni_api_orgid }}"
+        return_content: true
+        status_code: 200
+      register: root_ca_response
+
+    - name: AGNI - API - Save Root CA to File
+      ansible.builtin.copy:
+        content: "{{ root_ca_response.json.data.cert }}"
+        dest: "{{ certificate_folder }}/radsec_ca_certificate.pem"
+        mode: "0664"
+      when: root_ca_response.json.data.cert is defined

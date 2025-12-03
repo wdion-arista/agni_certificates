@@ -1,0 +1,47 @@
+# AGNI Search for Device
+
+- name: AGNI - API - Device search
+  delegate_to: localhost
+  vars:
+    api_name: /config.nad.list
+  tags:
+    - agni_api_con
+    - agni_api_search_devices
+  block:
+    - name: AGNI - API - Search for device
+      ansible.builtin.uri:
+        url: "{{ agni_base_url }}/api{{ api_name }}"
+        method: POST
+        body_format: json
+        headers:
+          Cookie: "{{ agni_cookie }}"
+          Content-Type: "application/json"
+        body:
+          orgID: "{{ agni_api_orgid }}"
+          query: "{{ inventory_hostname }}"
+          # query: "shaggy"
+        return_content: true
+        status_code: 200
+      register: agni_api_response
+
+    - name: AGNI - API - Set Hostname Fact
+      ansible.builtin.set_fact:
+        agni_id: "{{ agni_api_response.json.data.nads[0].id }}"
+        agni_hostname: "{{ agni_api_response.json.data.nads[0].name }}"
+      when:
+        - agni_api_response.json.data.nads is defined
+        - agni_api_response.json.data.nads | length == 1
+
+    - name: AGNI - API - Debug - Show nads data
+      ansible.builtin.debug:
+        var: agni_hostname
+        verbosity: 1
+
+# IF DEVICE NOT IN AGNI then ADD IT
+
+    - name: AGNI - API - Save to Temp File
+      ansible.builtin.copy:
+        content: "# {{ api_name }}\n{{ agni_api_response.json.data | to_nice_yaml }}"
+        dest: "{{ certificate_folder }}/csr/{{ inventory_hostname }}.nad.yml"
+        mode: "0664"
+      when: agni_api_response.json.data is defined and ansible_verbosity >= 1

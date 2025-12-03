@@ -1,0 +1,66 @@
+---
+# AGNI Upload certs to Switch
+
+- name: ARISTA - CLI - Copy Certs to Switch
+  tags:
+    - upload_certs
+  block:
+    - name: ARISTA - CLI - Delete old cert on switch (Fixes net_put idempotency)
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+        ansible_scp_if_ssh: true
+      arista.eos.eos_command:
+        commands:
+          - "delete flash:{{ inventory_hostname }}_agni_signed.crt"
+          - "delete flash:radsec_ca_certificate.pem"
+      ignore_errors: true # It's okay if the file doesn't exist yet
+      register: ignore_errors_register
+
+    - name: ARISTA - CLI - Upload Signed Cert to Switch Flash
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_scp_if_ssh: true
+      ansible.netcommon.net_put:
+        src: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.crt"
+        dest: "{{ inventory_hostname }}_agni_signed.crt"
+        protocol: scp
+
+    - name: ARISTA - CLI - Upload AGNI Root CA Switch Flash
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_connection: ansible.netcommon.network_cli
+      ansible.netcommon.net_put:
+        src: "{{ certificate_folder }}/radsec_ca_certificate.pem"
+        dest: "radsec_ca_certificate.pem"
+        protocol: scp
+
+    - name: ARISTA - CLI - Copy Cert from Flash to certificate folder
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+      arista.eos.eos_command:
+        commands:
+          - "copy flash:{{ inventory_hostname }}_agni_signed.crt certificate:"
+          - "copy flash:radsec_ca_certificate.pem certificate:"
+
+    - name: ARISTA - CLI - Configure radsec Certs
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+      arista.eos.eos_command:
+        commands:
+          - "configure"
+          - "management security"
+          - " ssl profile agni-server"
+          - " certificate {{ inventory_hostname }}_agni_signed.crt key {{ inventory_hostname }}.key"
+          - " trust certificate radsec_ca_certificate.pem"
+          - "radius-server host radsec.beta.agni.arista.io tls ssl-profile agni-server"
+      when: agni_cli_cfg_switch

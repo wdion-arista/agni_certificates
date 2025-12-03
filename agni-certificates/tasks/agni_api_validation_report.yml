@@ -1,0 +1,109 @@
+# AGNI Validation and Report
+
+- name: AGNI - API - Get Device status and Validate Radsec
+  delegate_to: localhost
+  vars:
+    api_name: /config.nad.get
+    cert_path: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.crt"
+  tags:
+    - agni_api_con
+  block:
+    # API Call with 1 Minute Retry Logic
+    - name: AGNI - API - Get Device status (Retry for 1m if numRadSecConns < 1)
+      ansible.builtin.uri:
+        url: "{{ agni_base_url }}/api{{ api_name }}"
+        method: POST
+        body_format: json
+        headers:
+          Cookie: "{{ agni_cookie }}"
+          Content-Type: "application/json"
+        body: "{{ {'orgID': agni_api_orgid, 'id': agni_id | int} }}"
+        return_content: true
+        status_code: 200
+      register: agni_nad_get_response
+      # Check every 10 seconds, up to 6 times (60 seconds total)
+      retries: 6
+      delay: 10
+      # Keep retrying until connections are >= 1
+      until: (agni_nad_get_response.json.data.numRadSecConns | default(0) | int) >= 1
+
+    # Openssl get certificate expiry date
+    - name: AGNI - CERT - Extract Expiry Date from CRT file
+      ansible.builtin.shell: |
+        openssl x509 -in "{{ cert_path }}" -enddate -noout | cut -d= -f2
+      register: cert_expiry_output
+      changed_when: false
+      ignore_errors: true # Don't crash if file is missing
+
+    # SUCCESS: Save File
+    - name: AGNI - API - Save Device status to File
+      ansible.builtin.copy:
+        content: "# {{ api_name }}\n{{ agni_nad_get_response.json.data | to_nice_yaml }}"
+        dest: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.status.yml"
+        mode: "0664"
+
+    # SUCCESS: Register Connected Facts
+    - name: AGNI - API - Register Connection Facts (Success)
+      ansible.builtin.set_fact:
+        agni_report_data:
+          hostname: "{{ agni_nad_get_response.json.data.name | default(inventory_hostname) }}"
+          ip: "{{ agni_nad_get_response.json.data.ipAddress | default('Unknown') }}"
+          status: "Connected ({{ agni_nad_get_response.json.data.numRadSecConns }} connections)"
+          timestamp: "{{ lookup('pipe', 'date \"+%Y-%m-%d %H:%M:%S\"') }}"
+          # Ensure this line exists and has a default for stdout
+          expiry: "{{ cert_expiry_output.stdout | default('File Not Found') }}"
+  rescue:
+    # FAILURE: Register Disconnected Facts
+    - name: AGNI - API - Register Connection Facts (Failed)
+      ansible.builtin.set_fact:
+        agni_report_data:
+          hostname: "{{ inventory_hostname }}"
+          ip: "{{ agni_nad_get_response.json.data.ipAddress | default(ansible_host) | default('Unknown') }}"
+          status: "NOT CONNECTED (0)"
+          timestamp: "{{ lookup('pipe', 'date \"+%Y-%m-%d %H:%M:%S\"') }}"
+          # Ensure this line exists so the key is present even on failure
+          expiry: "Check Failed / Unknown"
+
+# -----------------------------------------------------------------
+# REPORTING - Save to File and Print to Screen
+# -----------------------------------------------------------------
+
+- name: REPORT - Generate Table String
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    radsec_table_output: |
+      --------------------------------------------------------------------------------------------------------------------------------------
+      {{ "| %-35s | %-15s | %-25s | %-25s | %-20s |" | format("HOSTNAME", "IP ADDRESS", "STATUS", "CERT EXPIRY", "TIMESTAMP") }}
+      --------------------------------------------------------------------------------------------------------------------------------------
+      {% for host in ansible_play_hosts %}
+      {% if hostvars[host]['agni_report_data'] is defined %}
+      {{ "| %-35s | %-15s | %-25s | %-25s | %-20s |" | format(
+            hostvars[host]['agni_report_data']['hostname'] | default('Unknown'),
+            hostvars[host]['agni_report_data']['ip'] | default('Unknown'),
+            hostvars[host]['agni_report_data']['status'] | default('Unknown'),
+            hostvars[host]['agni_report_data']['expiry'] | default('N/A'),
+            hostvars[host]['agni_report_data']['timestamp'] | default('N/A')
+          ) }}
+      {% endif %}
+      {% endfor %}
+      --------------------------------------------------------------------------------------------------------------------------------------
+- name: REPORT - Save RadSec Table to File
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - always
+  ansible.builtin.copy:
+    content: "{{ radsec_table_output }}"
+    dest: "{{ certificate_folder }}/radsec_status_report.txt"
+    mode: "0644"
+
+- name: REPORT - Display RadSec Table to Console
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - always
+  ansible.builtin.debug:
+    msg: "{{ radsec_table_output.split('\n') }}"

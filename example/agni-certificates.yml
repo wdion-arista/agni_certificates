@@ -1,0 +1,25 @@
+# Create .env file for sourcing variables:
+# export LABPASSPHRASE="changeme"
+# export AGNI_keyID=KEY-ATNXXXXX-XXX
+# export AGNI_keyValue=XXXXXXXXXXXXXXXXX
+# export AGNI_orgID=XXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+# export AGNI_pod=0 
+---
+- name: Arista AGNI Certificate
+  hosts: "{{ target_hosts | default('AGNI_CERTIFICATES') }}"
+  gather_facts: false
+  # ignore_unreachable: true
+
+  tasks:
+    - name: Generate Arista AGNI Certificate
+      vars:
+        ansible_user: cvpadmin
+        ansible_password: "{{ lookup('env', 'LABPASSPHRASE') }}"
+        agni_api_keyid: "{{ lookup('env', 'AGNI_keyID') }}" 
+        agni_api_keyvalue: "{{ lookup('env', 'AGNI_keyValue') }}" 
+        agni_api_orgid: "{{ lookup('env', 'AGNI_orgID') }}" 
+        agni_api_zoneid: 0
+      ansible.builtin.import_role:
+        # For testing agni-certificates
+        # name: agni_certificates/agni-certificates
+        name: agni-certificates

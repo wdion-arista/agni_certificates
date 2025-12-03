@@ -1,0 +1,25 @@
+# Connect to AGNI and get Cookie
+
+- name: AGNI - API - CONNECT - Get AGNI Cookie
+  delegate_to: localhost
+  tags:
+    - agni_api_cookie
+  block:
+    - name: AGNI - API - CONNECT - Authenticate to AGNI and get Cookie
+      ansible.builtin.uri:
+        url: "{{ agni_base_url }}{{ agni_login_endpoint }}?keyID={{ agni_api_keyid }}&keyValue={{ agni_api_keyvalue }}"
+        method: GET
+        return_content: true
+        headers:
+          Accept: "application/json"
+      register: login_response
+
+    - name: AGNI - API - CONNECT - Set Cookie Fact
+      ansible.builtin.set_fact:
+        agni_cookie: "{{ login_response.json.data.cookie.split(';')[0] }}"
+      when: login_response.json.data.cookie is defined
+
+    - name: AGNI - API - CONNECT - Debug - Show extracted cookie (optional)
+      ansible.builtin.debug:
+        var: agni_cookie
+        verbosity: 1

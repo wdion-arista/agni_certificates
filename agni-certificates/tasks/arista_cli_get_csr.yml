@@ -1,0 +1,105 @@
+---
+# ARISTA - CLI - Check connectivity Create key and CSR
+
+- name: ARISTA - CLI - Run key checks and get CSR to host
+  tags:
+    - get_csr
+  block:
+    - name: ARISTA - CLI - Check if cert Exists
+      tags:
+        - get_csr
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+      arista.eos.eos_command:
+        commands:
+          - "dir certificate:"
+          - "show management security ssl key {{ inventory_hostname }}.key"
+          - "show version | json filter systemMacAddress"
+          - "show hostname | json"
+      changed_when: false
+      ignore_errors: true
+      register: agni_check_cert
+      when:
+        - ((device_type | default('')) == '')
+
+- name: ARISTA - CLI - Create Key and CSR request file
+  tags:
+    - get_csr
+  block:
+
+    - name: ARISTA - CLI - Create key
+      tags:
+        - get_csr
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+      arista.eos.eos_command:
+        commands:
+          - "security pki key generate rsa 2048 {{ inventory_hostname }}.key"
+          # - "security pki certificate generate signing-request key {{ inventory_hostname }}.key"
+        # wait_for:
+        #   - result[0] contains 'ARISTA_ROOT_CA'
+        #   # - result[1] contains '5 received'
+      changed_when: false
+      ignore_errors: true
+      register: agni_create_key
+      when:
+        - ((device_type | default('')) == '')
+        - agni_check_cert.stdout is defined
+        - agni_check_cert.stdout | length > 0
+        - agni_check_cert.stdout[1] | length == 0
+
+    - name: ARISTA - CLI - Create CSR
+      tags:
+        - get_csr
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+        common_name: "{{ agni_check_cert.stdout[2] }}"
+        san_host: "{{ agni_check_cert.stdout[3].hostname }}"
+        san_fqdn: "{{ agni_check_cert.stdout[3].fqdn }}"
+      arista.eos.eos_command:
+        commands:
+          - >-
+            security pki certificate generate signing-request
+            key {{ inventory_hostname }}.key
+            parameters common-name {{ common_name }}
+            country {{ agni_cert_signing_country }}
+            subject-alternative-name dns {{ san_host }} {{ san_fqdn }}
+      changed_when: false
+      ignore_errors: true
+      register: agni_create_csr
+      when:
+        - ((device_type | default('')) == '')
+
+    - name: ARISTA - CLI - Copy Cert CSR stdout to file
+      tags:
+        - get_csr
+      ansible.builtin.copy:
+        content: "{{ agni_create_csr.stdout[0] }}"
+        dest: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.csr"
+        mode: "0664"
+      delegate_to: localhost
+      when:
+        - agni_create_csr.stdout is defined
+        - agni_create_csr.stdout | length > 0
+        - agni_create_csr.stdout[0] | length > 0
+        - ((device_type | default('')) == '')
+
+
+- name: ARISTA - CLI - DEBUG - Display results for Ansible connectivity check
+  tags:
+    - get_csr
+  ansible.builtin.debug:
+    msg: "Ansible connectivity to {{ inventory_hostname }} was successful. ✅ \n{{ agni_check_cert | to_nice_yaml }}"
+  when:
+    - ansible_verbosity >= 1
+    - ((device_type | default('')) == '')
+    - not agni_check_cert.failed

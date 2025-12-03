@@ -1,0 +1,43 @@
+# AGNI Enroll Device
+
+
+- name: AGNI - API - Enroll Device
+  delegate_to: localhost
+  vars:
+    api_name: /config.cert.radsec.client.enroll
+  tags:
+    - agni_api_con
+    - agni_api_enroll
+  block:
+    - name: AGNI - API - Read CSR File Content
+      ansible.builtin.slurp:
+        src: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.csr"
+      register: csr_file_content
+
+    - name: AGNI - API - Enroll CSR with AGNI
+      ansible.builtin.uri:
+        url: "{{ agni_base_url }}/api{{ api_name }}"
+        method: POST
+        body_format: json
+        headers:
+          Cookie: "{{ agni_cookie }}"
+          Content-Type: "application/json"
+        body: "{{ {'orgID': agni_api_orgid,
+              'nadID': agni_id | int,
+              'createClient': false,
+              'csr': csr_file_content['content'] | b64decode} }}"
+        return_content: true
+        status_code: 200
+      register: enrollment_response
+
+    - name: AGNI - API - Save Signed Certificate to File
+      ansible.builtin.copy:
+        content: "{{ enrollment_response.json.data.x509Certificate }}"
+        dest: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.crt"
+        mode: "0664"
+      when: enrollment_response.json.data.x509Certificate is defined
+
+    - name: AGNI - API - Fail if no certificate returned
+      ansible.builtin.fail:
+        msg: "Enrollment successful but no certificate found in response: {{ enrollment_response.json }}"
+      when: enrollment_response.json.data.x509Certificate is not defined

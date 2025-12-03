@@ -1,0 +1,79 @@
+# Ping / DNS checks
+
+- name: CONNECTION TEST - Network Connectivity Suite
+  tags:
+    - ping
+  when: agni_ping_check
+  block:
+    # A. HOST CHECK (Localhost pings the Switch Management IP)
+    - name: CONNECTION TEST - HOST - Check network connectivity via ICMP
+      ansible.builtin.command: ping -c 2 {{ ansible_host }}
+      delegate_to: localhost
+      changed_when: false
+      register: network_ping_result_icmp
+      ignore_errors: true
+
+    # B. SWITCH CHECK (Switch Pings 8.8.8.8 and Checks DNS)
+    - name: CONNECTION TEST - SWITCH - Check internet and DNS from switch
+      vars:
+        ansible_network_os: arista.eos.eos
+        ansible_become: true
+        ansible_become_method: enable
+        ansible_connection: network_cli
+      arista.eos.eos_command:
+        commands:
+          - show version                     # result[0]
+          - ping 8.8.8.8                     # result[1]
+          - "bash nslookup {{ agni_fqdn }}"  # result[2] - The DNS Check
+        wait_for:
+          - result[0] contains Arista
+          - result[1] contains '5 received'
+      changed_when: false
+      register: network_ping_result_host
+      ignore_errors: true
+      when:
+        - network_ping_result_icmp.rc == 0
+
+
+  always:
+    - name: PING - Set Final Boolean Fact (Per Device)
+      tags:
+        - always
+      ansible.builtin.set_fact:
+        network_ping_result: >-
+          {{
+              (not agni_ping_check)
+              or
+              (
+                (network_ping_result_icmp.rc | default(-1) == 0)
+                and
+                (network_ping_result_host.failed | default(true) == false)
+                and
+                (
+                    'server can''t find' not in (network_ping_result_host.stdout[2] | default(''))
+                )
+                and
+                (
+                    'NXDOMAIN' not in (network_ping_result_host.stdout[2] | default(''))
+                )
+                  and
+                (
+                    'returned error code' not in (network_ping_result_host.stdout[2] | default(''))
+                )
+              )
+          }}
+
+    - name: DEBUG - Display Final Result
+      tags:
+        - always
+      ansible.builtin.debug:
+        msg:
+          - "Host: {{ inventory_hostname }}"
+          - "Overall Result: {{ network_ping_result }}"
+          - "DNS Output: {{ network_ping_result_host.stdout[2] | default('SKIPPED') | regex_replace('\n', ' ') }}"
+    - name: FINAL GUARDRAIL - Fail if checks failed
+      tags:
+        - always
+      ansible.builtin.fail:
+        msg: "Network checks failed and agni_ping is set to true."
+      when: not network_ping_result

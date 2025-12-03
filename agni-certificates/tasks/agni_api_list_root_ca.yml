@@ -1,0 +1,30 @@
+# AGNI - List Root CA
+
+- name: AGNI - API - List Root CA
+  delegate_to: localhost
+  vars:
+    api_name: /config.cert.ca.list
+  tags:
+    - agni_api_con
+    - agni_api_list_root_ca
+  block:
+    - name: AGNI - API - List RadSec Root CA
+      ansible.builtin.uri:
+        url: "{{ agni_base_url }}/api{{ api_name }}"
+        method: POST
+        body_format: json
+        headers:
+          Cookie: "{{ agni_cookie }}"
+          Content-Type: "application/json"
+        body:
+          orgID: "{{ agni_api_orgid }}"
+        return_content: true
+        status_code: 200
+      register: root_ca_response
+
+    - name: AGNI - API - Save Root CA List to File
+      ansible.builtin.copy:
+        content: "{{ root_ca_response.json.data.caCerts | to_nice_yaml }}"
+        dest: "{{ certificate_folder }}/radsec_ca_certificate_list.yml"
+        mode: "0664"
+      when: root_ca_response.json.data.caCerts is defined

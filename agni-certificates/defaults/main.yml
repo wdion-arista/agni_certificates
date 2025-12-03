@@ -1,0 +1,36 @@
+---
+# defaults file for agni-certificatea
+#
+# Input/Output directories
+certificate_folder: "{{ root_dir | default(inventory_dir) }}/certificates"
+certificate_csr_folder: "{{ certificate_folder }}/csr"
+#
+# Bypass Ping check
+agni_ping: true
+# Create key and CSR on switch
+agni_csr: true
+# Sign CSR from AGNI CA
+agni_api: true
+# Copy Certs to Switch
+agni_deploy: true
+# Configure AGNI radsec
+agni_cfg_switch: true
+# Validation and report of AGNI Status (1 minute timeout)
+agni_validation_report: false
+#
+# AGNI API URL
+agni_fqdn: "beta.agni.arista.io"
+agni_base_url: "https://{{ agni_fqdn }}"
+agni_login_endpoint: "/cvcue/keyLogin"
+#
+# CSR Country ABVR
+agni_cert_signing_country: CA
+
+# Ansible User and password for switch
+ansible_user: cvpadmin
+ansible_password: ""
+
+# AGNI API Login and org ID
+agni_api_keyid: KEY-ATNXXXXX-XXX
+agni_api_keyvalue: XXXXXXXXXXXXXXXXX
+agni_api_orgid: XXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX

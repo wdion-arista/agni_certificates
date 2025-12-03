@@ -1,0 +1,83 @@
+---
+# Setup Environments
+
+- name: SETUP - Create required directories if not present config
+  tags:
+    - always
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0775"
+  loop:
+    - "{{ certificate_folder }}"
+    - "{{ certificate_csr_folder }}"
+  delegate_to: localhost
+  run_once: true
+
+# check var true false to fix from cli command
+# --- NEW TASK START ---
+- name: MAIN - INIT - Initialize network_ping_result default
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    network_ping_result: true
+
+- name: SETUP - Set agni_ping_check based on agni_ping condition (If/Else)
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    agni_ping_check: "{{ (agni_ping | default(false) | string == 'true' or agni_ping | default(false) | bool) | ternary(true, false) }}"
+  # run_once: true
+  delegate_to: localhost
+
+- name: SETUP - Set get_csr based on agni_csr condition (If/Else)
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    get_csr: "{{ (agni_csr | default(false) | string == 'true' or agni_csr | default(false) | bool) | ternary(true, false) }}"
+  # run_once: true
+  delegate_to: localhost
+
+- name: SETUP - Set agni_api_con based on agni_api condition (If/Else)
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    agni_api_con: "{{ (agni_api | default(false) | string == 'true' or agni_api | default(false) | bool) | ternary(true, false) }}"
+  # run_once: true
+  delegate_to: localhost
+
+- name: SETUP - Set agni_cli_deploy based on agni_deploy condition (If/Else)
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    agni_cli_deploy: "{{ (agni_deploy | default(false) | string == 'true' or agni_deploy | default(false) | bool) | ternary(true, false) }}"
+  # run_once: true
+  delegate_to: localhost
+
+- name: SETUP - Set agni_cli_cfg_switch based on agni_cfg_switch condition (If/Else)
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    agni_cli_cfg_switch: "{{ (agni_cfg_switch | default(false) | string == 'true' or agni_cfg_switch | default(false) | bool) | ternary(true, false) }}"
+  # run_once: true
+  delegate_to: localhost
+
+- name: SETUP - Set agni_validate_report_check based on agni_validation_report condition (If/Else)
+  tags:
+    - always
+  ansible.builtin.set_fact:
+    agni_validate_report_check: >-
+      {{
+        (agni_validation_report | default(false) | string == 'true'
+        or agni_validation_report | default(false) | bool)
+        | ternary(true, false)
+      }}
+  # run_once: true
+  delegate_to: localhost
+
+- name: SETUP - Debug - Show the links
+  tags:
+    - always
+  ansible.builtin.debug:
+    msg: "Get CSR: {{ get_csr }} \n"
+  when: ansible_verbosity >= 1
