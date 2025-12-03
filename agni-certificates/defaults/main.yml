@@ -16,7 +16,7 @@ agni_deploy: true
 # Configure AGNI radsec
 agni_cfg_switch: true
 # Validation and report of AGNI Status (1 minute timeout)
-agni_validation_report: false
+agni_validation_report: true
 #
 # AGNI API URL
 agni_fqdn: "beta.agni.arista.io"
