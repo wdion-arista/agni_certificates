@@ -5,6 +5,8 @@
 certificate_folder: "{{ root_dir | default(inventory_dir) }}/certificates"
 certificate_csr_folder: "{{ certificate_folder }}/csr"
 #
+# VRF used by switch-originated ping, DNS, and RadSec traffic.
+agni_device_vrf: default
 # Bypass Ping check
 agni_ping: true
 # Create key and CSR on switch

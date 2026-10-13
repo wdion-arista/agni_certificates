@@ -128,6 +128,10 @@ These variables control the behavior of the role. You can override these in your
 certificate_folder: "{{ root_dir | default(inventory_dir) }}/certificates"
 certificate_csr_folder: "{{ certificate_folder }}/csr"
 
+# VRF for switch-originated ping, DNS, and RadSec traffic.
+# Keep `default` for devices without a management VRF.
+agni_device_vrf: default
+
 # Toggles (Enable/Disable specific tasks steps)
 agni_ping: true              # Bypass Ping check if false
 agni_csr: true               # Create key and CSR on switch

@@ -62,5 +62,7 @@
           - " ssl profile agni-server"
           - " certificate {{ inventory_hostname }}_agni_signed.crt key {{ inventory_hostname }}.key"
           - " trust certificate radsec_ca_certificate.pem"
-          - "radius-server host radsec.beta.agni.arista.io tls ssl-profile agni-server"
+          - >-
+            radius-server host radsec.beta.agni.arista.io{% if agni_device_vrf != 'default' %}
+            vrf {{ agni_device_vrf }}{% endif %} tls ssl-profile agni-server
       when: agni_cli_cfg_switch
