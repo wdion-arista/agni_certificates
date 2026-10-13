@@ -23,8 +23,11 @@
       arista.eos.eos_command:
         commands:
           - show version                     # result[0]
-          - ping 8.8.8.8                     # result[1]
-          - "bash nslookup {{ agni_fqdn }}"  # result[2] - The DNS Check
+          - >-
+            ping{% if agni_device_vrf != 'default' %} vrf {{ agni_device_vrf }}{% endif %} 8.8.8.8
+          - >-
+            bash{% if agni_device_vrf != 'default' %} sudo ip netns exec ns-{{ agni_device_vrf }}{% endif %}
+            nslookup {{ agni_fqdn }}
         wait_for:
           - result[0] contains Arista
           - result[1] contains '5 received'
@@ -77,3 +80,4 @@
       ansible.builtin.fail:
         msg: "Network checks failed and agni_ping is set to true."
       when: not network_ping_result
+      ignore_errors: true

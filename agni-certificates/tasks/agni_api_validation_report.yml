@@ -26,6 +26,7 @@
       delay: 10
       # Keep retrying until connections are >= 1
       until: (agni_nad_get_response.json.data.numRadSecConns | default(0) | int) >= 1
+      ignore_errors: true
 
     # Openssl get certificate expiry date
     - name: AGNI - CERT - Extract Expiry Date from CRT file
@@ -41,6 +42,7 @@
         content: "# {{ api_name }}\n{{ agni_nad_get_response.json.data | to_nice_yaml }}"
         dest: "{{ certificate_csr_folder }}/{{ inventory_hostname }}.status.yml"
         mode: "0664"
+      ignore_errors: true
 
     # SUCCESS: Register Connected Facts
     - name: AGNI - API - Register Connection Facts (Success)
@@ -48,7 +50,7 @@
         agni_report_data:
           hostname: "{{ agni_nad_get_response.json.data.name | default(inventory_hostname) }}"
           ip: "{{ agni_nad_get_response.json.data.ipAddress | default('Unknown') }}"
-          status: "Connected ({{ agni_nad_get_response.json.data.numRadSecConns }} connections)"
+          status: "Connected ({{ agni_nad_get_response.json.data.numRadSecConns | default('0') }} connections)"
           timestamp: "{{ lookup('pipe', 'date \"+%Y-%m-%d %H:%M:%S\"') }}"
           # Ensure this line exists and has a default for stdout
           expiry: "{{ cert_expiry_output.stdout | default('File Not Found') }}"

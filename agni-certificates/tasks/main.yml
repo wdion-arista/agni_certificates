@@ -1,67 +1,71 @@
 ---
+- name: Main Configuration Logic
+  block:
 
-- name: MAIN - SETUP - Setup ENV and files
-  tags:
-    - always
-  ansible.builtin.include_tasks: setup.yml
+    - name: MAIN - SETUP - Setup ENV and files
+      tags:
+        - always
+      ansible.builtin.include_tasks: setup.yml
 
-- name: MAIN - CONNECTION - Ping Devices from localhost
-  tags:
-    - ping
-  ansible.builtin.include_tasks: ping.yml
-
-
-- name: MAIN - ARISTA - Get CSR from Arista Switch
-  tags:
-    - get_csr
-  ansible.builtin.include_tasks: arista_cli_get_csr.yml
-  when: agni_csr and network_ping_result and ((device_type | default('')) == '')
-
-- name: MAIN - API - Cookie Connection
-  tags:
-    - agni_api_con
-  # run_once: true
-  ansible.builtin.include_tasks: agni_api_connection.yml
-  when: agni_api and network_ping_result and ((device_type | default('')) == '')
-
-### API START
-
-- name: AGNI API - List Root CA
-  tags:
-    - agni_api_con
-  run_once: true
-  ansible.builtin.include_tasks: agni_api_list_root_ca.yml
-  when: agni_api and network_ping_result and ((device_type | default('')) == '')
-
-- name: MAIN -  API - Download Root CA
-  tags:
-    - agni_api_con
-  run_once: true
-  ansible.builtin.include_tasks: agni_api_download_root_ca.yml
-  when: agni_api and network_ping_result and ((device_type | default('')) == '')
+    - name: MAIN - CONNECTION - Ping Devices from localhost
+      tags:
+        - ping
+      ansible.builtin.include_tasks: ping.yml
+      ignore_errors: true
 
 
-- name: MAIN - AGNI - API - Search Devices
-  tags:
-    - agni_api_con
-  ansible.builtin.include_tasks: agni_api_search_devices.yml
-  when: agni_api and network_ping_result and ((device_type | default('')) == '')
+    - name: MAIN - ARISTA - Get CSR from Arista Switch
+      tags:
+        - get_csr
+      ansible.builtin.include_tasks: arista_cli_get_csr.yml
+      when: agni_csr and network_ping_result and ((device_type | default('')) == '')
+
+    - name: MAIN - API - Cookie Connection
+      tags:
+        - agni_api_con
+      # run_once: true
+      ansible.builtin.include_tasks: agni_api_connection.yml
+      when: agni_api and network_ping_result and ((device_type | default('')) == '')
+
+    ### API START
+
+    - name: AGNI API - List Root CA
+      tags:
+        - agni_api_con
+      run_once: true
+      ansible.builtin.include_tasks: agni_api_list_root_ca.yml
+      when: agni_api and network_ping_result and ((device_type | default('')) == '')
+
+    - name: MAIN -  API - Download Root CA
+      tags:
+        - agni_api_con
+      run_once: true
+      ansible.builtin.include_tasks: agni_api_download_root_ca.yml
+      when: agni_api and network_ping_result and ((device_type | default('')) == '')
 
 
-- name: MAIN - AGNI - API - Enroll Device
-  tags:
-    - agni_api_con
-  ansible.builtin.include_tasks: agni_api_enroll.yml
-  when: agni_api and network_ping_result and ((device_type | default('')) == '')
+    - name: MAIN - AGNI - API - Search Devices
+      tags:
+        - agni_api_con
+      ansible.builtin.include_tasks: agni_api_search_devices.yml
+      when: agni_api and network_ping_result and ((device_type | default('')) == '')
 
-- name: MAIN - ARISTA - CLI - Upload Certs and Root CA
-  tags:
-    - agni_api_con
-  ansible.builtin.include_tasks: arista_cli_upload_certs.yml
-  when: agni_cli_deploy and network_ping_result and ((device_type | default('')) == '')
 
-- name: MAIN - AGNI - API - Validate streaming radsec
-  tags:
-    - agni_api_con
-  ansible.builtin.include_tasks: agni_api_validation_report.yml
-  when: agni_api and network_ping_result and agni_validate_report_check and ((device_type | default('')) == '')
+    - name: MAIN - AGNI - API - Enroll Device
+      tags:
+        - agni_api_con
+      ansible.builtin.include_tasks: agni_api_enroll.yml
+      when: agni_api and network_ping_result and ((device_type | default('')) == '')
+
+    - name: MAIN - ARISTA - CLI - Upload Certs and Root CA
+      tags:
+        - agni_api_con
+      ansible.builtin.include_tasks: arista_cli_upload_certs.yml
+      when: agni_cli_deploy and network_ping_result and ((device_type | default('')) == '')
+
+  always:
+    - name: MAIN - AGNI - API - Validate streaming radsec
+      tags:
+        - agni_api_con
+      ansible.builtin.include_tasks: agni_api_validation_report.yml
+      when: agni_validate_report_check and ((device_type | default('')) == '')
